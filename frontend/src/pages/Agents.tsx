@@ -56,6 +56,7 @@ export const Agents: React.FC = () => {
     form.setFieldsValue({
       ...agent,
       keywords: agent.keywords.join(', '),
+      language: agent.settings?.language || 'pl',
     });
     setModalVisible(true);
   };
@@ -72,9 +73,13 @@ export const Agents: React.FC = () => {
 
   const handleSubmit = async (values: any) => {
     try {
+      const { language, ...restValues } = values;
       const data: CreateAgentRequest = {
-        ...values,
+        ...restValues,
         keywords: values.keywords.split(',').map((k: string) => k.trim()),
+        settings: {
+          language: language || 'pl',
+        },
       };
 
       if (editingAgent) {
@@ -213,6 +218,21 @@ export const Agents: React.FC = () => {
               <Select.Option value="technical">Technical</Select.Option>
               <Select.Option value="friendly">Friendly</Select.Option>
               <Select.Option value="formal">Formal</Select.Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="language"
+            label="Language"
+            rules={[{ required: true }]}
+            initialValue="pl"
+          >
+            <Select>
+              <Select.Option value="pl">Polski (Polish)</Select.Option>
+              <Select.Option value="en">English</Select.Option>
+              <Select.Option value="de">Deutsch (German)</Select.Option>
+              <Select.Option value="es">Español (Spanish)</Select.Option>
+              <Select.Option value="fr">Français (French)</Select.Option>
             </Select>
           </Form.Item>
 

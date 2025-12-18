@@ -9,10 +9,16 @@ from typing import Optional, Dict, Any, List
 
 
 class PostCreate(BaseModel):
-    """Create post schema."""
+    """Create post schema - for manual post creation."""
+    agent_id: UUID
     title: str = Field(..., min_length=1, max_length=500)
+    slug: Optional[str] = None
     content: str = Field(..., min_length=1)
     excerpt: Optional[str] = None
+    meta_title: Optional[str] = Field(None, max_length=70)
+    meta_description: Optional[str] = Field(None, max_length=160)
+    keywords: Optional[List[str]] = None
+    status: str = Field("draft", pattern="^(draft|scheduled|published)$")
     publisher_id: Optional[UUID] = None
 
 

@@ -18,9 +18,29 @@ from app.schemas.tenant import (
     TenantResponse,
     TenantUsageResponse
 )
-from app.api.deps import get_current_superadmin
+from app.api.deps import get_current_superadmin, get_current_user
 
 router = APIRouter(prefix="/tenants", tags=["Tenants"])
+
+
+@router.get("/me", response_model=TenantResponse)
+async def get_current_tenant(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user's tenant."""
+    result = await db.execute(
+        select(Tenant).where(Tenant.id == current_user.tenant_id)
+    )
+    tenant = result.scalar_one_or_none()
+
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tenant not found",
+        )
+
+    return tenant
 
 
 @router.get("", response_model=List[TenantResponse])

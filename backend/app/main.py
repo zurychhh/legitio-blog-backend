@@ -12,7 +12,7 @@ from app.config import settings
 from app.database import init_db, close_db
 
 # Import routers
-from app.api import auth, tenants, agents, sources, publishers, posts, tasks
+from app.api import auth, tenants, agents, sources, publishers, posts, tasks, public, schedules
 
 # Configure logging
 logging.basicConfig(
@@ -50,6 +50,46 @@ async def startup_event():
     if settings.DEBUG:
         logger.info("Initializing database...")
         await init_db()
+
+    # Fix admin user tenant association if needed
+    try:
+        from app.database import AsyncSessionLocal
+        from app.models.tenant import Tenant
+        from app.models.user import User
+        from sqlalchemy import select
+
+        logger.info("Checking admin user tenant association...")
+
+        async with AsyncSessionLocal() as db:
+            # First get the admin user to see their current tenant_id
+            result = await db.execute(
+                select(User).where(User.email == "admin@legitio.pl")
+            )
+            admin = result.scalar_one_or_none()
+
+            if admin:
+                logger.info(f"Found admin user: {admin.email}, tenant_id: {admin.tenant_id}")
+
+                if admin.tenant_id is None:
+                    # Get Legitio tenant
+                    result = await db.execute(
+                        select(Tenant).where(Tenant.slug == "legitio")
+                    )
+                    tenant = result.scalar_one_or_none()
+
+                    if tenant:
+                        admin.tenant_id = tenant.id
+                        admin.role = "admin"
+                        await db.commit()
+                        logger.info(f"Fixed admin user: associated with tenant {tenant.name}")
+                    else:
+                        logger.warning("Legitio tenant not found!")
+                else:
+                    logger.info(f"Admin already has tenant: {admin.tenant_id}")
+            else:
+                logger.info("No admin@legitio.pl user found")
+    except Exception as e:
+        logger.warning(f"Could not fix admin user: {e}")
 
     logger.info("Application startup complete")
 
@@ -101,13 +141,17 @@ async def root():
 
 
 # Include routers
+app.include_router(public.router, prefix=settings.API_PREFIX)  # Public endpoints first (no auth)
 app.include_router(auth.router, prefix=settings.API_PREFIX)
 app.include_router(tenants.router, prefix=settings.API_PREFIX)
 app.include_router(agents.router, prefix=settings.API_PREFIX)
 app.include_router(sources.router, prefix=settings.API_PREFIX)
+app.include_router(sources.tenant_router, prefix=settings.API_PREFIX)  # Tenant-level /sources
 app.include_router(publishers.router, prefix=settings.API_PREFIX)
+app.include_router(publishers.tenant_router, prefix=settings.API_PREFIX)  # Tenant-level /publishers
 app.include_router(posts.router, prefix=settings.API_PREFIX)
 app.include_router(tasks.router, prefix=settings.API_PREFIX)
+app.include_router(schedules.router, prefix=settings.API_PREFIX)
 
 
 if __name__ == "__main__":

@@ -71,7 +71,7 @@ export const Login: React.FC = () => {
 
           <div style={{ textAlign: 'center', marginTop: 16 }}>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              Default: admin@test.com / Admin123!
+              Default: admin@legitio.pl / Admin123!
             </Typography.Text>
           </div>
         </Form>

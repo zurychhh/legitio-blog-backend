@@ -45,6 +45,17 @@ from app.schemas.post import (
     PostListResponse,
     SEOPreviewResponse,
 )
+from app.schemas.schedule import (
+    ScheduleCreate,
+    ScheduleUpdate,
+    ScheduleResponse,
+    ScheduleListResponse,
+    ScheduleRunResponse,
+    ScheduleStats,
+    TrendingTopic,
+    TopicDiscoveryRequest,
+    TopicDiscoveryResponse,
+)
 
 __all__ = [
     # Auth
@@ -84,4 +95,14 @@ __all__ = [
     "PostResponse",
     "PostListResponse",
     "SEOPreviewResponse",
+    # Schedule
+    "ScheduleCreate",
+    "ScheduleUpdate",
+    "ScheduleResponse",
+    "ScheduleListResponse",
+    "ScheduleRunResponse",
+    "ScheduleStats",
+    "TrendingTopic",
+    "TopicDiscoveryRequest",
+    "TopicDiscoveryResponse",
 ]

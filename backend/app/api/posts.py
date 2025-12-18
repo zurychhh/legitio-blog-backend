@@ -2,9 +2,10 @@
 Posts API endpoints - manage blog posts with SEO metadata.
 """
 
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -29,8 +30,77 @@ from app.services.seo_service import get_seo_service
 from app.services.usage_service import get_usage_service
 from app.ai.token_counter import get_token_counter
 from app.adapters import create_publisher_adapter
+from datetime import datetime
 
 router = APIRouter(prefix="/posts", tags=["Posts"])
+
+
+@router.post("", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
+async def create_post(
+    post_data: PostCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create a new post manually (without AI generation).
+    Use this for manually written content.
+    """
+    # Check agent exists and user has access
+    result = await db.execute(
+        select(Agent).where(Agent.id == post_data.agent_id)
+    )
+    agent = result.scalar_one_or_none()
+
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent not found",
+        )
+
+    if not current_user.is_superadmin() and agent.tenant_id != current_user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied",
+        )
+
+    # Generate slug if not provided
+    seo_service = get_seo_service()
+    slug = post_data.slug or seo_service.generate_slug(post_data.title)
+
+    # Check slug uniqueness
+    existing = await db.execute(
+        select(Post).where(Post.slug == slug)
+    )
+    if existing.scalar_one_or_none():
+        # Add suffix to make unique
+        import uuid
+        slug = f"{slug}-{str(uuid.uuid4())[:8]}"
+
+    # Create post
+    new_post = Post(
+        agent_id=post_data.agent_id,
+        title=post_data.title,
+        slug=slug,
+        content=post_data.content,
+        excerpt=post_data.excerpt,
+        meta_title=post_data.meta_title,
+        meta_description=post_data.meta_description,
+        keywords=post_data.keywords or [],
+        status=post_data.status,
+        publisher_id=post_data.publisher_id,
+        word_count=len(post_data.content.split()),
+        tokens_used=0,  # Manual post - no AI tokens used
+    )
+
+    # Set published_at if status is published
+    if post_data.status == "published":
+        new_post.published_at = datetime.utcnow()
+
+    db.add(new_post)
+    await db.commit()
+    await db.refresh(new_post)
+
+    return new_post
 
 
 @router.get("", response_model=PostListResponse)
@@ -528,4 +598,135 @@ async def schedule_post(
         "message": "Post scheduled",
         "post_id": str(post_id),
         "scheduled_at": post.scheduled_at.isoformat()
+    }
+
+
+class FormatRequest(BaseModel):
+    """Request to format content."""
+    content: str
+    title: Optional[str] = None
+
+
+@router.post("/format")
+async def format_content(
+    format_data: FormatRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Format raw text/markdown into professional HTML with CSS components.
+    Converts markdown to styled HTML with info-boxes, cards, etc.
+    """
+    import re
+
+    content = format_data.content
+    title = format_data.title or ""
+
+    # Convert markdown headers to HTML
+    content = re.sub(r'^### (.+)$', r'<h3>\1</h3>', content, flags=re.MULTILINE)
+    content = re.sub(r'^## (.+)$', r'<h2>\1</h2>', content, flags=re.MULTILINE)
+    content = re.sub(r'^# (.+)$', r'<h2>\1</h2>', content, flags=re.MULTILINE)
+
+    # Convert bold text
+    content = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', content)
+    content = re.sub(r'__(.+?)__', r'<strong>\1</strong>', content)
+
+    # Convert italic text
+    content = re.sub(r'\*(.+?)\*', r'<em>\1</em>', content)
+    content = re.sub(r'_(.+?)_', r'<em>\1</em>', content)
+
+    # Convert blockquotes to info-boxes
+    def convert_blockquote(match):
+        text = match.group(1).strip()
+        # Detect type based on keywords
+        if any(kw in text.lower() for kw in ['uwaga', 'warning', 'ostrzeżenie']):
+            color = 'yellow'
+            icon = 'fa-exclamation-triangle'
+        elif any(kw in text.lower() for kw in ['ważne', 'important', 'pamiętaj']):
+            color = 'orange'
+            icon = 'fa-exclamation-circle'
+        elif any(kw in text.lower() for kw in ['wskazówka', 'tip', 'porada']):
+            color = 'green'
+            icon = 'fa-lightbulb'
+        else:
+            color = 'blue'
+            icon = 'fa-info-circle'
+
+        return f'''<div class="info-box {color}">
+<div class="info-box-title"><i class="fas {icon}"></i> Informacja</div>
+<p>{text}</p>
+</div>'''
+
+    content = re.sub(r'^>\s*(.+)$', convert_blockquote, content, flags=re.MULTILINE)
+
+    # Convert bullet lists
+    def convert_list(match):
+        items = match.group(0)
+        list_items = re.findall(r'^[-*]\s*(.+)$', items, re.MULTILINE)
+        if list_items:
+            items_html = '\n'.join(f'<li>{item}</li>' for item in list_items)
+            return f'<ul>\n{items_html}\n</ul>'
+        return items
+
+    content = re.sub(r'(^[-*]\s*.+$\n?)+', convert_list, content, flags=re.MULTILINE)
+
+    # Convert numbered lists
+    def convert_numbered_list(match):
+        items = match.group(0)
+        list_items = re.findall(r'^\d+\.\s*(.+)$', items, re.MULTILINE)
+        if list_items:
+            items_html = '\n'.join(f'<li>{item}</li>' for item in list_items)
+            return f'<ol>\n{items_html}\n</ol>'
+        return items
+
+    content = re.sub(r'(^\d+\.\s*.+$\n?)+', convert_numbered_list, content, flags=re.MULTILINE)
+
+    # Wrap plain paragraphs in <p> tags
+    lines = content.split('\n')
+    formatted_lines = []
+    in_block = False
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            formatted_lines.append('')
+            continue
+
+        # Check if line is already HTML
+        if stripped.startswith('<') or in_block:
+            formatted_lines.append(line)
+            if '<div' in stripped:
+                in_block = True
+            if '</div>' in stripped:
+                in_block = False
+        else:
+            # Wrap in paragraph
+            formatted_lines.append(f'<p>{stripped}</p>')
+
+    content = '\n'.join(formatted_lines)
+
+    # Clean up empty paragraphs
+    content = re.sub(r'<p>\s*</p>', '', content)
+
+    # Add section dividers between h2 headers (except first one)
+    h2_count = 0
+    def add_divider(match):
+        nonlocal h2_count
+        h2_count += 1
+        if h2_count > 1:
+            return f'<hr class="section-divider" />\n\n{match.group(0)}'
+        return match.group(0)
+
+    content = re.sub(r'<h2>.+?</h2>', add_divider, content)
+
+    # Add disclaimer at the end
+    content += '''
+
+<div class="disclaimer-box">
+<p><strong>Zastrzeżenie:</strong> Niniejszy artykuł ma charakter wyłącznie informacyjny i edukacyjny. Nie stanowi porady prawnej ani nie zastępuje konsultacji z prawnikiem. Legitio.pl nie ponosi odpowiedzialności za decyzje podjęte na podstawie powyższych informacji.</p>
+</div>'''
+
+    return {
+        "formatted_content": content.strip(),
+        "original_length": len(format_data.content),
+        "formatted_length": len(content)
     }

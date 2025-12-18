@@ -9,6 +9,7 @@ from app.models.source import Source
 from app.models.publisher import Publisher
 from app.models.post import Post
 from app.models.usage import UsageLog
+from app.models.schedule import ScheduleConfig
 
 __all__ = [
     "Tenant",
@@ -18,4 +19,5 @@ __all__ = [
     "Publisher",
     "Post",
     "UsageLog",
+    "ScheduleConfig",
 ]

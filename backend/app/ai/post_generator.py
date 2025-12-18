@@ -153,14 +153,26 @@ class PostGenerator:
 
     def _extract_title(self, content: str) -> str:
         """
-        Extract title from markdown content.
+        Extract title from HTML or markdown content.
 
         Args:
-            content: Markdown content
+            content: HTML or Markdown content
 
         Returns:
             Extracted title or "Untitled Post"
         """
+        import re
+
+        # Try HTML h1 or h2 first
+        h1_match = re.search(r'<h1[^>]*>([^<]+)</h1>', content, re.IGNORECASE)
+        if h1_match:
+            return h1_match.group(1).strip()
+
+        h2_match = re.search(r'<h2[^>]*>([^<]+)</h2>', content, re.IGNORECASE)
+        if h2_match:
+            return h2_match.group(1).strip()
+
+        # Fallback to Markdown
         lines = content.strip().split("\n")
         for line in lines:
             line = line.strip()
@@ -169,11 +181,13 @@ class PostGenerator:
             elif line.startswith("## "):
                 return line[3:].strip()
 
-        # Fallback: use first non-empty line
+        # Last fallback: use first non-empty text line
         for line in lines:
             line = line.strip()
-            if line and not line.startswith("#"):
-                return line[:100]  # Max 100 chars
+            # Skip HTML tags
+            clean_line = re.sub(r'<[^>]+>', '', line).strip()
+            if clean_line and len(clean_line) > 10:
+                return clean_line[:100]  # Max 100 chars
 
         return "Untitled Post"
 

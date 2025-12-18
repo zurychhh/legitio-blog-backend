@@ -24,6 +24,9 @@ from app.adapters import create_source_adapter
 
 router = APIRouter(prefix="/agents/{agent_id}/sources", tags=["Sources"])
 
+# Tenant-level endpoints (without agent_id requirement)
+tenant_router = APIRouter(prefix="/sources", tags=["Sources"])
+
 
 @router.get("", response_model=List[SourceResponse])
 async def list_sources(
@@ -168,3 +171,29 @@ async def test_source(
             message="Test failed",
             data={"error": str(e)}
         )
+
+
+# Tenant-level endpoint (list all sources for current user's tenant)
+@tenant_router.get("", response_model=List[SourceResponse])
+async def list_all_tenant_sources(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List all sources across all agents for the current user's tenant."""
+    # Get all agents for this tenant
+    agents_result = await db.execute(
+        select(Agent).where(Agent.tenant_id == current_user.tenant_id)
+    )
+    agent_ids = [agent.id for agent in agents_result.scalars().all()]
+
+    # Get all sources for these agents
+    if not agent_ids:
+        return []
+
+    result = await db.execute(
+        select(Source)
+        .where(Source.agent_id.in_(agent_ids))
+        .order_by(Source.created_at.desc())
+    )
+    sources = result.scalars().all()
+    return sources

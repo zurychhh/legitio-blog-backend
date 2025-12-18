@@ -34,6 +34,10 @@ export interface Agent {
   last_generation?: string;
   created_at: string;
   updated_at: string;
+  settings?: {
+    language?: string;
+    [key: string]: any;
+  };
 }
 
 export interface Post {
@@ -121,6 +125,10 @@ export interface CreateAgentRequest {
   target_audience?: string;
   seo_focus: string;
   schedule_cron?: string;
+  settings?: {
+    language?: string;
+    [key: string]: any;
+  };
 }
 
 export interface CreatePostRequest {

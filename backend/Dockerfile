@@ -23,8 +23,8 @@ COPY . .
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Expose port
-EXPOSE 8000
+# Expose port (Railway uses PORT env variable)
+EXPOSE 8001
 
-# Default command (can be overridden in docker-compose)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default command - uses PORT env variable for Railway compatibility
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8001}

@@ -58,6 +58,7 @@ class Agent(Base):
     publishers = relationship("Publisher", back_populates="agent", cascade="all, delete-orphan")
     posts = relationship("Post", back_populates="agent", cascade="all, delete-orphan")
     usage_logs = relationship("UsageLog", back_populates="agent", cascade="all, delete-orphan")
+    schedule_configs = relationship("ScheduleConfig", back_populates="agent", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Agent {self.name} - {self.expertise}>"

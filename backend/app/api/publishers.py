@@ -24,6 +24,9 @@ from app.adapters import create_publisher_adapter
 
 router = APIRouter(prefix="/agents/{agent_id}/publishers", tags=["Publishers"])
 
+# Tenant-level endpoints (without agent_id requirement)
+tenant_router = APIRouter(prefix="/publishers", tags=["Publishers"])
+
 
 @router.get("", response_model=List[PublisherResponse])
 async def list_publishers(
@@ -167,3 +170,29 @@ async def test_publisher(
             message="Test failed",
             data={"error": str(e)}
         )
+
+
+# Tenant-level endpoint (list all publishers for current user's tenant)
+@tenant_router.get("", response_model=List[PublisherResponse])
+async def list_all_tenant_publishers(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List all publishers across all agents for the current user's tenant."""
+    # Get all agents for this tenant
+    agents_result = await db.execute(
+        select(Agent).where(Agent.tenant_id == current_user.tenant_id)
+    )
+    agent_ids = [agent.id for agent in agents_result.scalars().all()]
+
+    # Get all publishers for these agents
+    if not agent_ids:
+        return []
+
+    result = await db.execute(
+        select(Publisher)
+        .where(Publisher.agent_id.in_(agent_ids))
+        .order_by(Publisher.created_at.desc())
+    )
+    publishers = result.scalars().all()
+    return publishers

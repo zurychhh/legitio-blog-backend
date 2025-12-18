@@ -6,6 +6,69 @@ Structured prompts for blog posts, SEO metadata, etc.
 from typing import Optional
 
 
+# HTML component templates for AI to use
+HTML_COMPONENTS = """
+=== DOSTĘPNE KOMPONENTY HTML ===
+
+1. INFO-BOX (ważne informacje, podstawa prawna):
+<div class="info-box blue">
+<div class="info-box-title"><i class="fas fa-balance-scale"></i> Tytuł</div>
+<p>Treść informacji.</p>
+</div>
+Kolory: blue (informacja), yellow (uwaga), green (pozytywne), orange (ostrzeżenie)
+Ikony: fa-balance-scale (prawo), fa-lightbulb (wskazówka), fa-exclamation-triangle (uwaga), fa-clock (termin), fa-calendar-alt (data)
+
+2. HIGHLIGHT-BOX (kluczowe dane, statystyki):
+<div class="highlight-box">
+<div class="highlight-grid">
+<div class="highlight-item">
+<span class="highlight-label">Etykieta</span>
+<span class="highlight-value">Wartość</span>
+</div>
+</div>
+</div>
+
+3. CARD-GRID (karty obok siebie):
+<div class="card-grid">
+<div class="info-card">
+<h3><i class="fas fa-icon"></i> Tytuł karty</h3>
+<p>Treść karty.</p>
+</div>
+</div>
+
+4. TWO-COLUMNS (porównania, pros/cons):
+<div class="two-columns">
+<div class="column">
+<h4 class="column-title green"><i class="fas fa-check-circle"></i> Pozytywne</h4>
+<ul><li>Element</li></ul>
+</div>
+<div class="column">
+<h4 class="column-title orange"><i class="fas fa-exclamation-circle"></i> Negatywne</h4>
+<ul><li>Element</li></ul>
+</div>
+</div>
+
+5. TIPS-LIST (wskazówki krok po kroku):
+<div class="tips-list">
+<div class="tip-item">
+<span class="tip-number">1</span>
+<div class="tip-content">
+<strong>Tytuł kroku</strong>
+<p>Opis kroku.</p>
+</div>
+</div>
+</div>
+
+6. SECTION-DIVIDER (rozdzielacz sekcji):
+<hr class="section-divider" />
+
+7. DISCLAIMER-BOX (zastrzeżenie prawne na końcu):
+<div class="disclaimer-box">
+<p><strong>Zastrzeżenie:</strong> Niniejszy artykuł ma charakter wyłącznie informacyjny i edukacyjny. Nie stanowi porady prawnej ani nie zastępuje konsultacji z prawnikiem. Legitio.pl nie ponosi odpowiedzialności za decyzje podjęte na podstawie powyższych informacji.</p>
+</div>
+"""
+
+
 def build_system_prompt(
     expertise: str,
     persona: Optional[str],
@@ -39,29 +102,32 @@ def build_system_prompt(
 ZASADY PISANIA:
 
 1. **Struktura SEO:**
-   - Używaj hierarchii nagłówków (H2, H3, H4)
+   - Używaj hierarchii nagłówków HTML (<h2>, <h3>)
    - Keyword musi pojawić się w pierwszych 100 słowach
    - Akapity max 3-4 zdania dla czytelności
-   - Używaj list punktowanych dla lepszej skanowania
+   - Używaj list <ul>/<li> dla lepszego skanowania
 
 2. **Content Quality:**
    - Pisz naturalnie, unikaj keyword stuffing
    - Używaj synonimów i pokrewnych terminów
    - Dodawaj konkretne przykłady i dane
-   - Linkuj do źródeł gdy podajesz fakty
+   - Podawaj podstawy prawne gdzie to możliwe
 
 3. **Engagement:**
    - Zacznij od mocnego hooka
    - Używaj pytań retorycznych
    - Dodaj praktyczne wskazówki
-   - Zakończ wyraźnym CTA (call-to-action)
+   - Zakończ wyraźnym podsumowaniem
 
-4. **Format:**
-   - Pisz w Markdown
-   - Używaj **pogrubienia** dla kluczowych punktów
-   - Używaj *kursywy* dla podkreśleń
-   - Dodawaj > cytaty gdy przydatne
+4. **Format - WAŻNE:**
+   - Pisz w czystym HTML (NIE Markdown!)
+   - Używaj <strong> dla kluczowych punktów
+   - Używaj <em> dla podkreśleń
+   - NIE używaj # ani ** - to Markdown!
+   - Używaj specjalnych komponentów HTML poniżej
 """
+
+    prompt += HTML_COMPONENTS
 
     return prompt
 
@@ -97,19 +163,19 @@ def build_post_generation_prompt(
 
     prompt = f"""Napisz profesjonalny artykuł blogowy na temat:
 
-**Temat:** {topic}"""
+TEMAT: {topic}"""
 
     if keyword:
-        prompt += f"\n**Główne keyword SEO:** {keyword}"
+        prompt += f"\nGŁÓWNE KEYWORD SEO: {keyword}"
 
     prompt += f"""
-**Długość docelowa:** {target_words} słów
-**Format:** Markdown
+DŁUGOŚĆ DOCELOWA: {target_words} słów
+FORMAT: Czysty HTML z komponentami CSS (NIE Markdown!)
 
 """
 
     if sources_content:
-        prompt += f"""**Źródła do wykorzystania:**
+        prompt += f"""ŹRÓDŁA DO WYKORZYSTANIA:
 {sources_content}
 
 Wykorzystaj powyższe źródła jako inspirację i fakty, ale pisz swoimi słowami.
@@ -117,34 +183,47 @@ Wykorzystaj powyższe źródła jako inspirację i fakty, ale pisz swoimi słowa
 """
 
     if additional_context:
-        prompt += f"""**Dodatkowy kontekst:**
+        prompt += f"""DODATKOWY KONTEKST:
 {additional_context}
 
 """
 
-    prompt += """**Wymagana struktura:**
+    prompt += """WYMAGANA STRUKTURA HTML:
 
-1. **Wstęp (2-3 akapity):**
-   - Hook przyciągający uwagę
-   - Przedstawienie problemu/tematu
-   - Zapowiedź co czytelnik się dowie
+1. NA POCZĄTKU - Info-box z podstawą prawną (jeśli dotyczy):
+<div class="info-box blue">
+<div class="info-box-title"><i class="fas fa-balance-scale"></i> Podstawa prawna</div>
+<p><strong>Nazwa ustawy/aktu</strong> - artykuły.</p>
+</div>
 
-2. **Treść główna (3-5 sekcji z nagłówkami H2):**
+2. SEKCJE (3-5 sekcji z <h2>):
    - Każda sekcja skupiona na jednym aspekcie
-   - Konkretne informacje, przykłady, dane
-   - Podnagłówki H3 dla podpunktów
-   - Listy punktowane dla klarowności
+   - Rozdzielaj sekcje: <hr class="section-divider" />
+   - Używaj <h3> dla podsekcji
+   - Używaj <ul><li> dla list
 
-3. **Podsumowanie:**
-   - Krótkie przypomnienie kluczowych punktów
-   - Praktyczne wnioski
-   - CTA zachęcające do akcji
+3. WIZUALNE ELEMENTY (użyj min. 3-4 różnych):
+   - highlight-box dla kluczowych danych/statystyk
+   - card-grid dla porównań opcji
+   - two-columns dla pros/cons
+   - tips-list dla kroków/wskazówek
+   - info-box yellow dla ostrzeżeń
+   - info-box green dla pozytywów
 
-**Dodatkowe wymagania:**
-- Używaj language polskiego o wysokiej jakości
-- Wprowadzaj keyword naturalnie
-- Dodaj 2-3 pytania retoryczne
-- Zakończ konkretnym CTA
+4. NA KOŃCU - ZAWSZE dodaj disclaimer-box:
+<div class="disclaimer-box">
+<p><strong>Zastrzeżenie:</strong> Niniejszy artykuł ma charakter wyłącznie informacyjny i edukacyjny. Nie stanowi porady prawnej ani nie zastępuje konsultacji z prawnikiem. Legitio.pl nie ponosi odpowiedzialności za decyzje podjęte na podstawie powyższych informacji.</p>
+</div>
+
+WAŻNE ZASADY:
+- Pisz w czystym HTML, NIE używaj Markdown (żadnych # ani **)
+- Używaj <strong> zamiast **tekst**
+- Używaj <h2> zamiast ## Nagłówek
+- Używaj <p> dla paragrafów
+- NIE zaczynaj od <h1> - tytuł jest osobno
+- Rozpocznij od info-box lub od wstępu z <p>
+- Używaj polskiego języka wysokiej jakości
+- Wprowadzaj keyword naturalnie w treści
 - Pisz przystępnie ale profesjonalnie
 """
 

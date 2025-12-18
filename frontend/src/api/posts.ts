@@ -3,8 +3,8 @@ import type { Post } from '../types';
 
 export const postsApi = {
   getAll: async (): Promise<Post[]> => {
-    const response = await apiClient.get<Post[]>('/posts');
-    return response.data;
+    const response = await apiClient.get<{items: Post[]}>('/posts');
+    return response.data.items;
   },
 
   getById: async (id: string): Promise<Post> => {

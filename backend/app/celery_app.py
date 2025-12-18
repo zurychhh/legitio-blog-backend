@@ -13,7 +13,12 @@ celery_app = Celery(
     "auto_blog",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["app.tasks.post_tasks", "app.tasks.publishing_tasks", "app.tasks.source_tasks"]
+    include=[
+        "app.tasks.post_tasks",
+        "app.tasks.publishing_tasks",
+        "app.tasks.source_tasks",
+        "app.tasks.auto_publish_tasks",
+    ]
 )
 
 # Celery configuration
@@ -64,6 +69,11 @@ celery_app.conf.update(
             "task": "app.tasks.maintenance_tasks.cleanup_old_results",
             "schedule": crontab(hour=3, minute=0),  # Daily at 3 AM
         },
+        # Process auto-publish schedules every hour
+        "process-auto-publish-schedules": {
+            "task": "app.tasks.auto_publish_tasks.process_auto_publish_schedules",
+            "schedule": crontab(minute=0),  # Every hour at :00
+        },
     },
 )
 
@@ -73,4 +83,5 @@ celery_app.conf.task_routes = {
     "app.tasks.publishing_tasks.*": {"queue": "publishing"},
     "app.tasks.source_tasks.*": {"queue": "sources"},
     "app.tasks.maintenance_tasks.*": {"queue": "maintenance"},
+    "app.tasks.auto_publish_tasks.*": {"queue": "generation"},
 }

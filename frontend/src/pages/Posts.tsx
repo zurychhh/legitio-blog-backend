@@ -152,19 +152,14 @@ export const Posts: React.FC = () => {
       render: (count: number) => count.toLocaleString(),
     },
     {
-      title: 'SEO Score',
-      dataIndex: 'seo_score',
-      key: 'seo_score',
-      render: (score: number) => {
-        const color = score >= 80 ? 'green' : score >= 60 ? 'orange' : 'red';
-        return <Tag color={color}>{score.toFixed(1)}</Tag>;
-      },
-    },
-    {
       title: 'Readability',
       dataIndex: 'readability_score',
       key: 'readability_score',
-      render: (score: number) => score.toFixed(1),
+      render: (score: number) => {
+        if (!score) return 'N/A';
+        const color = score >= 80 ? 'green' : score >= 60 ? 'orange' : 'red';
+        return <Tag color={color}>{score.toFixed(1)}</Tag>;
+      },
     },
     {
       title: 'Created',

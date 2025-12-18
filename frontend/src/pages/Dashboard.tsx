@@ -99,9 +99,9 @@ export const Dashboard: React.FC = () => {
     },
     {
       title: 'SEO Score',
-      dataIndex: 'seo_score',
-      key: 'seo_score',
-      render: (score: number) => `${score.toFixed(1)}`,
+      dataIndex: 'readability_score',
+      key: 'readability_score',
+      render: (score: number) => score ? `${score.toFixed(1)}` : 'N/A',
     },
     {
       title: 'Created',
