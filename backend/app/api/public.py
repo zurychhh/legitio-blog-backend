@@ -115,8 +115,8 @@ async def fix_admin_user(
     One-time setup endpoint to fix admin user tenant association.
     Requires X-Setup-Key header matching SECRET_KEY.
     """
-    # Verify secret key
-    if x_setup_key != settings.SECRET_KEY:
+    # Verify secret key (using JWT_SECRET)
+    if x_setup_key != settings.JWT_SECRET:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid setup key"
